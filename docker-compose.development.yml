@@ -1,0 +1,74 @@
+version: '3'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.development
+    environment:
+      TZ: Asia/Tokyo
+      RAILS_ENV: development
+      RACK_ENV: development
+      RSPEC_ENV: test
+    volumes:
+      - .:/app
+      - bundle:/usr/local/bundle
+    ports:
+      - '3000:3000'
+    links:
+      - db-development
+      - db-test
+    tty: true
+    stdin_open: true
+    command: bin/dev-server
+    networks:
+      - sharetribe
+  db-development:
+    image: bitnami/mysql:5.7
+    environment:
+      ALLOW_EMPTY_PASSWORD: 'yes'
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+      MYSQL_DATABASE: sharetribe_development
+      TZ: Asia/Tokyo
+    ports:
+      - '13306:3306'
+    expose:
+      - '3306'
+    volumes:
+      - db-development-data:/bitnami/mysql/data
+      - ./mysql-development/custom.cnf:/opt/bitnami/mysql/conf/my_custom.cnf:ro
+    networks:
+      - sharetribe
+  db-test:
+    image: bitnami/mysql:5.7
+    environment:
+      ALLOW_EMPTY_PASSWORD: 'yes'
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+      MYSQL_DATABASE: sharetribe_test
+      TZ: Asia/Tokyo
+    ports:
+      - '23306:3306'
+    expose:
+      - '3306'
+    volumes:
+      - db-test-data:/bitnami/mysql/data
+      - ./mysql-development/custom.cnf:/opt/bitnami/mysql/conf/my_custom.cnf:ro
+    networks:
+      - sharetribe
+  memcached:
+    image: memcached:latest
+    networks:
+      - sharetribe
+
+volumes:
+  bundle:
+    driver: local
+  db-development-data:
+    driver: local
+  db-test-data:
+    driver: local
+
+networks:
+  sharetribe:
+    external: true

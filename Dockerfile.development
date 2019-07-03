@@ -1,0 +1,57 @@
+FROM ruby:2.3.4
+MAINTAINER Sharetribe Team <team@sharetribe.com>
+
+ENV LANG C.UTF-8
+ENV ENTRYKIT_VERSION 0.4.0
+ENV SPHINX_VERSION 3.1.1-612d99f
+ENV NODE_VERSION 7.8.0
+
+RUN echo 'deb http://deb.debian.org/debian jessie main' > /etc/apt/sources.list \
+    && echo 'deb http://security.debian.org jessie/updates main' >> /etc/apt/sources.list \
+    && set -x \
+    && apt-get update \
+    && apt-get dist-upgrade -y \
+    build-essential \
+    mysql-client \
+    tzdata \
+    git \
+    imagemagick \
+    node \
+    npm
+
+# node install select version
+RUN npm install -g n
+RUN n ls
+RUN n 7.8.0
+RUN apt-get purge nodejs npm -y
+
+# set up and expose directories
+RUN mkdir -pv /opt/sphinx/log /opt/sphinx/index
+
+# http://sphinxsearch.com/files/sphinx-3.1.1-612d99f-linux-amd64.tar.gz
+RUN wget http://sphinxsearch.com/files/sphinx-${SPHINX_VERSION}-linux-amd64.tar.gz -O /tmp/sphinxsearch.tar.gz
+RUN cd /opt/sphinx && tar -xf /tmp/sphinxsearch.tar.gz
+RUN rm /tmp/sphinxsearch.tar.gz
+
+# point to sphinx binaries
+ENV PATH "${PATH}:/opt/sphinx/sphinx-3.1.1/bin"
+RUN indexer -v
+
+RUN wget https://github.com/progrium/entrykit/releases/download/v${ENTRYKIT_VERSION}/entrykit_${ENTRYKIT_VERSION}_Linux_x86_64.tgz \
+    && tar -xvzf entrykit_${ENTRYKIT_VERSION}_Linux_x86_64.tgz \
+    && rm entrykit_${ENTRYKIT_VERSION}_Linux_x86_64.tgz \
+    && mv entrykit /bin/entrykit \
+    && chmod +x /bin/entrykit \
+    && entrykit --symlink
+
+RUN mkdir /app
+
+WORKDIR /app
+
+ENTRYPOINT [ \
+  "prehook", "rm -f tmp/pids/server.pid", "--", \
+  "prehook", "gem install bundler -v 1.17.3", "--", \
+  "prehook", "ruby -v", "--", \
+  "prehook", "bundle -v", "--", \
+  "prehook", "bundle install --clean -j4", "--", \
+  "prehook", "gem install foreman", "--" ]
